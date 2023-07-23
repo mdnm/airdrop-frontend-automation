@@ -131,6 +131,37 @@ async function clickSwapButton(retryCount = 0) {
   });
 }
 
+async function clickUnlockButton() {
+  const time = Math.floor(Math.random() * 4000) + 12500;
+  const buttons = document.querySelectorAll<HTMLButtonElement>(
+    ".MuiButton-contained"
+  );
+
+  const unlockButton = Array.from(buttons).find((button) => {
+    return button.innerHTML.includes("Unlock");
+  });
+
+  if (!unlockButton) {
+    return;
+  }
+
+  const clickPromise = new Promise((resolve) => {
+    setTimeout(() => {
+      unlockButton.click();
+      resolve(null);
+    }, time);
+  });
+
+  await clickPromise;
+
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      // waiting for metamask to run
+      resolve(null);
+    }, 20000);
+  });
+}
+
 async function closeSuccessModal(retryCount = 0) {
   const time = Math.floor(Math.random() * 4000) + 12500;
 
@@ -349,6 +380,8 @@ const App = ({
         );
 
         await selectAmount("100%");
+
+        await clickUnlockButton();
 
         await clickSwapButton();
 
