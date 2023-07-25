@@ -494,8 +494,7 @@ const App = ({
 
   useLayoutEffect(() => {
     const thirtyMinutes = 1000 * 60 * 30;
-    //const oneHour = 1000 * 60 * 60;
-    const tenMinutes = 1000 * 60 * 10;
+    const oneHour = 1000 * 60 * 60;
 
     if (window.location.hostname !== "syncswap.xyz") {
       return;
@@ -527,8 +526,8 @@ const App = ({
 
       for (let i = 0; i < numberOfSwaps; i++) {
         const time =
-          //Math.floor(Math.random() * oneHour * maxTimeIntervalBetweenSwaps) +
-          tenMinutes;
+          Math.floor(Math.random() * oneHour * maxTimeIntervalBetweenSwaps) +
+          oneHour;
 
         dispatchEvent(
           new CustomEvent(OpenStartingCurrencySelectorModalEventName)
