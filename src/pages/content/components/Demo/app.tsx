@@ -3,13 +3,35 @@ import Countdown from "react-countdown";
 import { ILocalStorage, LocalStorage } from "../../../../chrome/localStorage";
 import { HourRange } from "../../../../contexts/SettingsContext";
 
+const OpenStartingCurrencySelectorModalEventName =
+  "openStartingCurrencySelectorModal";
+const OpenOtherCurrencySelectorModalEventName =
+  "openOtherCurrencySelectorModal";
+const SelectStartingCurrencyEventName = "selectStartingCurrency";
+const SelectOtherCurrencyEventName = "selectOtherCurrency";
+const SelectAmountEventName = "selectAmount";
+const ClickUnlockButtonEventName = "clickUnlockButton";
+const ClickSwapButtonEventName = "clickSwapButton";
+const CloseUnlockSuccessModalEventName = "closeUnlockSuccessModal";
+const CloseSwapSuccessModalEventName = "closeSwapSuccessModal";
+
+const MINIMUM_TIME_BETWEEN_ACTIONS = 15000;
+const RANDOM_TIME_BETWEEN_ACTIONS = 5000;
+
+function getWaitTime() {
+  return (
+    Math.floor(Math.random() * RANDOM_TIME_BETWEEN_ACTIONS) +
+    MINIMUM_TIME_BETWEEN_ACTIONS
+  );
+}
+
 async function openCurrencySelectorModal(
   currencyPosition: number,
   retryCount = 0
 ) {
-  const time = Math.floor(Math.random() * 4000) + 12500;
+  const time = getWaitTime();
 
-  return new Promise((resolve) => {
+  new Promise((resolve) => {
     setTimeout(() => {
       const swapButtons =
         document.querySelectorAll<HTMLButtonElement>(".swap-token-btn");
@@ -33,8 +55,23 @@ async function openCurrencySelectorModal(
   });
 }
 
-async function selectCurrency(currency: string, retryCount = 0) {
-  const time = Math.floor(Math.random() * 4000) + 12500;
+async function handleOpenStartingCurrencySelectorModal() {
+  await openCurrencySelectorModal(0);
+
+  dispatchEvent(new CustomEvent(SelectStartingCurrencyEventName));
+}
+
+async function handleOpenOtherCurrencySelectorModal() {
+  await openCurrencySelectorModal(1);
+
+  dispatchEvent(new CustomEvent(SelectOtherCurrencyEventName));
+}
+
+async function selectCurrency(
+  isSelectingStartingCurrency: boolean,
+  retryCount = 0
+) {
+  const time = getWaitTime();
 
   return new Promise((resolve) => {
     setTimeout(() => {
@@ -42,37 +79,72 @@ async function selectCurrency(currency: string, retryCount = 0) {
         ".token-selector-currencies"
       );
 
-      const currencyButton = Array.from(tokensContainer.children).find(
-        (token) => {
-          console.log({
-            innerHTML: token.querySelector("p.MuiTypography-body1").innerHTML,
-          });
-
-          return token
-            .querySelector("p.MuiTypography-body1")
-            .innerHTML.includes(currency);
-        }
-      );
-
-      if (!currencyButton) {
+      if (!tokensContainer) {
         if (retryCount >= 3) {
-          alert("Could not find currency button");
+          alert("Could not find currency container");
           return;
         }
 
-        selectCurrency(currency, retryCount + 1).then(() => {
+        selectCurrency(isSelectingStartingCurrency, retryCount + 1).then(() => {
           resolve(null);
         });
       } else {
-        (currencyButton as HTMLDivElement).click();
-        resolve(null);
+        const currencyButton = Array.from(tokensContainer?.children).find(
+          (token: HTMLDivElement) => {
+            const currencyText = token?.innerText;
+
+            const availableCurrenciesRegex = new RegExp("USDC|USDT");
+
+            if (!availableCurrenciesRegex.test(currencyText)) {
+              return false;
+            }
+
+            const amount = currencyText.split("\n\n")[2];
+
+            if (isSelectingStartingCurrency && amount) {
+              return true;
+            } else if (!isSelectingStartingCurrency && !amount) {
+              return true;
+            }
+
+            return false;
+          }
+        );
+
+        if (!currencyButton) {
+          if (retryCount >= 3) {
+            alert("Could not find currency button");
+            return;
+          }
+
+          selectCurrency(isSelectingStartingCurrency, retryCount + 1).then(
+            () => {
+              resolve(null);
+            }
+          );
+        } else {
+          (currencyButton as HTMLDivElement).click();
+          resolve(null);
+        }
       }
     }, time);
   });
 }
 
+async function handleSelectStartingCurrency() {
+  await selectCurrency(true);
+
+  dispatchEvent(new CustomEvent(OpenOtherCurrencySelectorModalEventName));
+}
+
+async function handleSelectOtherCurrency() {
+  await selectCurrency(false);
+
+  dispatchEvent(new CustomEvent(SelectAmountEventName));
+}
+
 async function selectAmount(amount: string, retryCount = 0) {
-  const time = Math.floor(Math.random() * 4000) + 12500;
+  const time = getWaitTime();
 
   return new Promise((resolve) => {
     setTimeout(() => {
@@ -101,8 +173,14 @@ async function selectAmount(amount: string, retryCount = 0) {
   });
 }
 
+async function handleSelectAmount() {
+  await selectAmount("100%");
+
+  dispatchEvent(new CustomEvent(ClickUnlockButtonEventName));
+}
+
 async function clickSwapButton(retryCount = 0) {
-  const time = Math.floor(Math.random() * 4000) + 12500;
+  const time = getWaitTime();
 
   return new Promise((resolve) => {
     setTimeout(() => {
@@ -131,39 +209,53 @@ async function clickSwapButton(retryCount = 0) {
   });
 }
 
+async function handleClickSwapButton() {
+  await clickSwapButton();
+
+  dispatchEvent(new CustomEvent(CloseSwapSuccessModalEventName));
+}
+
 async function clickUnlockButton() {
-  const time = Math.floor(Math.random() * 4000) + 12500;
-  const buttons = document.querySelectorAll<HTMLButtonElement>(
-    ".MuiButton-contained"
-  );
-
-  const unlockButton = Array.from(buttons).find((button) => {
-    return button.innerHTML.includes("Unlock");
-  });
-
-  if (!unlockButton) {
-    return;
-  }
-
-  const clickPromise = new Promise((resolve) => {
-    setTimeout(() => {
-      unlockButton.click();
-      resolve(null);
-    }, time);
-  });
-
-  await clickPromise;
+  const time = getWaitTime();
 
   return new Promise((resolve) => {
     setTimeout(() => {
-      // waiting for metamask to run
-      resolve(null);
-    }, 20000);
+      const buttons = document.querySelectorAll<HTMLButtonElement>(
+        ".MuiButton-contained"
+      );
+
+      if (!buttons) {
+        resolve(false);
+        return;
+      }
+
+      const unlockButton = Array.from(buttons).find((button) => {
+        return button.innerHTML.includes("Unlock");
+      });
+
+      if (!unlockButton) {
+        resolve(false);
+        return;
+      }
+
+      unlockButton.click();
+      resolve(true);
+    }, time);
   });
 }
 
+async function handleClickUnlockButton() {
+  const foundUnlockButton = await clickUnlockButton();
+
+  if (foundUnlockButton) {
+    dispatchEvent(new CustomEvent(CloseUnlockSuccessModalEventName));
+  } else {
+    dispatchEvent(new CustomEvent(ClickSwapButtonEventName));
+  }
+}
+
 async function closeSuccessModal(retryCount = 0) {
-  const time = Math.floor(Math.random() * 4000) + 12500;
+  const time = getWaitTime();
 
   return new Promise((resolve) => {
     setTimeout(() => {
@@ -188,6 +280,16 @@ async function closeSuccessModal(retryCount = 0) {
   });
 }
 
+async function handleCloseUnlockSuccessModal() {
+  await closeSuccessModal();
+
+  dispatchEvent(new CustomEvent(ClickSwapButtonEventName));
+}
+
+async function handleCloseSwapSuccessModal() {
+  await closeSuccessModal();
+}
+
 const storage: ILocalStorage = new LocalStorage();
 
 export default function Settings() {
@@ -197,8 +299,6 @@ export default function Settings() {
         dailyHourRange: HourRange;
         numberOfSwaps: number;
         maxTimeIntervalBetweenSwaps: number;
-        startingCurrency: string;
-        otherCurrency: string;
       }
     | undefined
   >(undefined);
@@ -211,16 +311,12 @@ export default function Settings() {
         dailyHourRange,
         numberOfSwaps,
         maxTimeIntervalBetweenSwaps,
-        startingCurrency,
-        otherCurrency,
         storedLastDayRun,
       ] = await Promise.all([
         storage.load<boolean>("isRunning"),
         storage.load<HourRange>("dailyHourRange"),
         storage.load<number>("numberOfSwaps"),
         storage.load<number>("maxTimeIntervalBetweenSwaps"),
-        storage.load<string>("startingCurrency"),
-        storage.load<string>("otherCurrency"),
         storage.load<number>("lastDayRun"),
       ]);
 
@@ -228,9 +324,7 @@ export default function Settings() {
         isRunning: isRunning ?? false,
         dailyHourRange: dailyHourRange ?? { start: 10, end: 16 },
         numberOfSwaps: numberOfSwaps ?? 2,
-        maxTimeIntervalBetweenSwaps: maxTimeIntervalBetweenSwaps ?? 3,
-        startingCurrency: startingCurrency ?? "USDC",
-        otherCurrency: otherCurrency ?? "USDT",
+        maxTimeIntervalBetweenSwaps: maxTimeIntervalBetweenSwaps ?? 2,
       });
 
       if (storedLastDayRun) {
@@ -302,8 +396,6 @@ const App = ({
   dailyHourRange,
   numberOfSwaps,
   maxTimeIntervalBetweenSwaps,
-  startingCurrency,
-  otherCurrency,
   updateIsRunning,
   lastDayRun,
   setLastDayRun,
@@ -312,8 +404,6 @@ const App = ({
   dailyHourRange: HourRange;
   numberOfSwaps: number;
   maxTimeIntervalBetweenSwaps: number;
-  startingCurrency: string;
-  otherCurrency: string;
   updateIsRunning: (newIsRunning: boolean) => void;
   lastDayRun: Date | undefined;
   setLastDayRun: (newLastDayRun: Date) => void;
@@ -323,18 +413,95 @@ const App = ({
   const [todayStartingHour, setTodayStartingHour] = useState<number>(
     getTodayStartingHour(dailyHourRange)
   );
-  const lastCurrencySwapOrder = useRef<"starting" | "other">("other");
   const interval = useRef<NodeJS.Timer | undefined>(undefined);
+
+  useEffect(() => {
+    window.addEventListener(
+      OpenStartingCurrencySelectorModalEventName,
+      handleOpenStartingCurrencySelectorModal
+    );
+
+    window.addEventListener(
+      SelectStartingCurrencyEventName,
+      handleSelectStartingCurrency
+    );
+
+    window.addEventListener(
+      OpenOtherCurrencySelectorModalEventName,
+      handleOpenOtherCurrencySelectorModal
+    );
+
+    window.addEventListener(
+      SelectOtherCurrencyEventName,
+      handleSelectOtherCurrency
+    );
+
+    window.addEventListener(SelectAmountEventName, handleSelectAmount);
+
+    window.addEventListener(
+      ClickUnlockButtonEventName,
+      handleClickUnlockButton
+    );
+
+    window.addEventListener(
+      CloseUnlockSuccessModalEventName,
+      handleCloseUnlockSuccessModal
+    );
+
+    window.addEventListener(ClickSwapButtonEventName, handleClickSwapButton);
+
+    window.addEventListener(
+      CloseSwapSuccessModalEventName,
+      handleCloseSwapSuccessModal
+    );
+
+    return () => {
+      document.removeEventListener(
+        OpenStartingCurrencySelectorModalEventName,
+        handleOpenStartingCurrencySelectorModal
+      );
+      document.removeEventListener(
+        SelectStartingCurrencyEventName,
+        handleSelectStartingCurrency
+      );
+      document.removeEventListener(
+        OpenOtherCurrencySelectorModalEventName,
+        handleOpenOtherCurrencySelectorModal
+      );
+      document.removeEventListener(
+        SelectOtherCurrencyEventName,
+        handleSelectOtherCurrency
+      );
+      document.removeEventListener(SelectAmountEventName, handleSelectAmount);
+      document.removeEventListener(
+        ClickUnlockButtonEventName,
+        clickUnlockButton
+      );
+      document.removeEventListener(
+        CloseUnlockSuccessModalEventName,
+        handleCloseUnlockSuccessModal
+      );
+      document.removeEventListener(
+        ClickSwapButtonEventName,
+        handleClickSwapButton
+      );
+      document.removeEventListener(
+        CloseSwapSuccessModalEventName,
+        handleCloseSwapSuccessModal
+      );
+    };
+  }, []);
 
   useLayoutEffect(() => {
     const thirtyMinutes = 1000 * 60 * 30;
-    const oneHour = 1000 * 60 * 60;
+    //const oneHour = 1000 * 60 * 60;
+    const tenMinutes = 1000 * 60 * 10;
+
+    if (window.location.hostname !== "syncswap.xyz") {
+      return;
+    }
 
     async function swap() {
-      if (window.location.hostname !== "syncswap.xyz" || !isRunning) {
-        return;
-      }
-
       const today = new Date();
       const currentHour = today.getHours();
       const alreadyRanToday = lastDayRun?.getDate?.() === today.getDate();
@@ -360,37 +527,14 @@ const App = ({
 
       for (let i = 0; i < numberOfSwaps; i++) {
         const time =
-          Math.floor(Math.random() * oneHour * maxTimeIntervalBetweenSwaps) +
-          oneHour;
+          //Math.floor(Math.random() * oneHour * maxTimeIntervalBetweenSwaps) +
+          tenMinutes;
 
-        await openCurrencySelectorModal(0);
-
-        await selectCurrency(
-          lastCurrencySwapOrder.current === "starting"
-            ? otherCurrency
-            : startingCurrency
+        dispatchEvent(
+          new CustomEvent(OpenStartingCurrencySelectorModalEventName)
         );
-
-        await openCurrencySelectorModal(1);
-
-        await selectCurrency(
-          lastCurrencySwapOrder.current === "starting"
-            ? startingCurrency
-            : otherCurrency
-        );
-
-        await selectAmount("100%");
-
-        await clickUnlockButton();
-
-        await clickSwapButton();
-
-        await closeSuccessModal();
 
         const newNumberOfSwapsDone = i + 1;
-
-        lastCurrencySwapOrder.current =
-          lastCurrencySwapOrder.current === "starting" ? "other" : "starting";
 
         if (newNumberOfSwapsDone >= numberOfSwaps) {
           setNextRunInterval(0);
@@ -420,16 +564,14 @@ const App = ({
     }
 
     if (!isRunning) {
-      clearInterval(interval.current);
-      document.styleSheets[0].deleteRule(0);
+      clearEffect(interval);
       return;
     }
 
     swap();
 
     return () => {
-      clearInterval(interval.current);
-      document.styleSheets[0].deleteRule(0);
+      clearEffect(interval);
     };
   }, [isRunning]);
 
@@ -478,10 +620,7 @@ const App = ({
           <span style={{ fontSize: "16px" }}>
             The next automation starts at {todayStartingHour}:00
           </span>
-          <NextRunIntervalDisplay
-            nextRunInterval={nextRunInterval}
-            key={lastCurrencySwapOrder.current}
-          />
+          <NextRunIntervalDisplay nextRunInterval={nextRunInterval} />
           <span style={{ fontSize: "16px" }}>
             Missing {numberOfSwaps - numberOfSwapsDone} swaps
           </span>
@@ -493,10 +632,8 @@ const App = ({
 
 const NextRunIntervalDisplay = ({
   nextRunInterval,
-  key,
 }: {
   nextRunInterval: number;
-  key: string;
 }) => {
   if (nextRunInterval <= 0) {
     return null;
@@ -505,10 +642,14 @@ const NextRunIntervalDisplay = ({
   return (
     <span style={{ fontSize: "16px" }}>
       Time until next run{" "}
-      <Countdown
-        key={key + nextRunInterval}
-        date={Date.now() + nextRunInterval}
-      />
+      <Countdown key={nextRunInterval} date={Date.now() + nextRunInterval} />
     </span>
   );
 };
+
+function clearEffect(
+  interval: React.MutableRefObject<NodeJS.Timer | undefined>
+) {
+  clearInterval(interval.current);
+  document.styleSheets[0].deleteRule(0);
+}

@@ -13,10 +13,6 @@ const Settings = () => {
     handleUpdateNumberOfSwaps,
     maxTimeIntervalBetweenSwaps,
     handleUpdateMaxTimeIntervalBetweenSwaps,
-    startingCurrency,
-    handleUpdateStartingCurrency,
-    otherCurrency,
-    handleUpdateOtherCurrency,
   } = useSettings();
 
   return (
@@ -67,7 +63,7 @@ const Settings = () => {
           <option value="2">3 hours</option>
         </select>
       </div>
-      <div className="text-lg flex w-full justify-between gap-2">
+      {/* <div className="text-lg flex w-full justify-between gap-2">
         <span>Starting currency</span>
         <CurrencySelector
           value={startingCurrency}
@@ -80,7 +76,7 @@ const Settings = () => {
           value={otherCurrency}
           updateValue={handleUpdateOtherCurrency}
         />
-      </div>
+      </div> */}
       <p className="text-md">
         Note: Every time you change the settings, you need to stop and start the
         automation 2 times for the changes to take effect.

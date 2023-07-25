@@ -8,8 +8,6 @@ type SettingsContextType = {
   dailyHourRange: HourRange;
   numberOfSwaps: number;
   maxTimeIntervalBetweenSwaps: number;
-  startingCurrency: string;
-  otherCurrency: string;
   handleUpdateIsRunning: (newIsRunning: boolean) => void;
   handleUpdateStartHour: (newStartHour: number) => void;
   handleUpdateEndHour: (newEndHour: number) => void;
@@ -17,8 +15,6 @@ type SettingsContextType = {
   handleUpdateMaxTimeIntervalBetweenSwaps: (
     newMaxTimeIntervalBetweenSwaps: number
   ) => void;
-  handleUpdateStartingCurrency: (newStartingCurrency: string) => void;
-  handleUpdateOtherCurrency: (newOtherCurrency: string) => void;
 };
 
 const storage: ILocalStorage = new LocalStorage();
@@ -33,9 +29,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   });
   const [numberOfSwaps, setNumberOfSwaps] = useState<number>(2);
   const [maxTimeIntervalBetweenSwaps, setMaxTimeIntervalBetweenSwaps] =
-    useState<number>(3);
-  const [startingCurrency, setStartingCurrency] = useState<string>("USDC");
-  const [otherCurrency, setOtherCurrency] = useState<string>("USDT");
+    useState<number>(2);
 
   const handleUpdateIsRunning = async (newIsRunning: boolean) => {
     await storage.save("isRunning", newIsRunning);
@@ -85,36 +79,6 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     handleUpdateIsRunning(false);
   };
 
-  const handleUpdateStartingCurrency = async (newStartingCurrency: string) => {
-    if (newStartingCurrency === otherCurrency) {
-      await storage.save("otherCurrency", startingCurrency);
-      await storage.save("startingCurrency", newStartingCurrency);
-      setOtherCurrency(startingCurrency);
-      setStartingCurrency(newStartingCurrency);
-      handleUpdateIsRunning(false);
-      return;
-    }
-
-    await storage.save("startingCurrency", newStartingCurrency);
-    setStartingCurrency(newStartingCurrency);
-    handleUpdateIsRunning(false);
-  };
-
-  const handleUpdateOtherCurrency = async (newOtherCurrency: string) => {
-    if (newOtherCurrency === startingCurrency) {
-      await storage.save("startingCurrency", otherCurrency);
-      await storage.save("otherCurrency", newOtherCurrency);
-      setStartingCurrency(otherCurrency);
-      setOtherCurrency(newOtherCurrency);
-      handleUpdateIsRunning(false);
-      return;
-    }
-
-    await storage.save("otherCurrency", newOtherCurrency);
-    setOtherCurrency(newOtherCurrency);
-    handleUpdateIsRunning(false);
-  };
-
   useEffect(() => {
     async function loadDataFromStorage() {
       const [
@@ -122,15 +86,11 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         defaultDailyHourRange,
         defaultNumberOfSwaps,
         defaultMaxTimeIntervalBetweenSwaps,
-        defaultStartingCurrency,
-        defaultOtherCurrency,
       ] = await Promise.all([
         storage.load<boolean>("isRunning"),
         storage.load<HourRange>("dailyHourRange"),
         storage.load<number>("numberOfSwaps"),
         storage.load<number>("maxTimeIntervalBetweenSwaps"),
-        storage.load<string>("startingCurrency"),
-        storage.load<string>("otherCurrency"),
       ]);
 
       setIsRunning(defaultIsRunning);
@@ -146,14 +106,6 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       if (defaultMaxTimeIntervalBetweenSwaps) {
         setMaxTimeIntervalBetweenSwaps(defaultMaxTimeIntervalBetweenSwaps);
       }
-
-      if (defaultStartingCurrency) {
-        setStartingCurrency(defaultStartingCurrency);
-      }
-
-      if (defaultOtherCurrency) {
-        setOtherCurrency(defaultOtherCurrency);
-      }
     }
 
     loadDataFromStorage();
@@ -166,15 +118,11 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         dailyHourRange,
         numberOfSwaps,
         maxTimeIntervalBetweenSwaps,
-        startingCurrency,
-        otherCurrency,
         handleUpdateIsRunning,
         handleUpdateStartHour,
         handleUpdateEndHour,
         handleUpdateNumberOfSwaps,
         handleUpdateMaxTimeIntervalBetweenSwaps,
-        handleUpdateStartingCurrency,
-        handleUpdateOtherCurrency,
       }}
     >
       {children}
