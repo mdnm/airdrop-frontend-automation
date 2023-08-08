@@ -10,13 +10,10 @@ function getWaitTime() {
   );
 }
 
-async function openCurrencySelectorModal(
-  page,
-  currencyPosition
-) {
+async function openCurrencySelectorModal(page, currencyPosition) {
   const time = getWaitTime();
 
-  new Promise((resolve) => {
+  return new Promise((resolve) => {
     setTimeout(async () => {
       const swapButtons = await page.$$(".swap-token-btn");
 
@@ -30,71 +27,90 @@ async function openCurrencySelectorModal(
 async function handleOpenStartingCurrencySelectorModal(page) {
   await openCurrencySelectorModal(page, 0);
 
-  await handleSelectStartingCurrency(page)
+  await handleSelectStartingCurrency(page);
 }
 
-async function handleOpenOtherCurrencySelectorModal(page) {
+async function handleOpenOtherCurrencySelectorModal(
+  page,
+  currentOtherCurrency
+) {
   await openCurrencySelectorModal(page, 1);
 
-  await handleSelectOtherCurrency(page)
+  await handleSelectOtherCurrency(page, currentOtherCurrency);
 }
 
 async function selectCurrency(
   page,
   isSelectingStartingCurrency,
+  currentOtherCurrency
 ) {
   const time = getWaitTime();
 
   return new Promise((resolve) => {
     setTimeout(async () => {
-      await page.evaluate(
-        async (isSelectingStartingCurrency) => {
-          const tokensContainer = document.querySelector(".token-selector-currencies");
+      const selectedCurrency = await page.evaluate(
+        async (isSelectingStartingCurrency, currentOtherCurrency) => {
+          const tokensContainer = document.querySelector(
+            ".token-selector-currencies"
+          );
           if (!tokensContainer) {
             return;
           }
 
-          const currencyButton = Array.from(tokensContainer?.children ?? []).find(
-            (token) => {
+          let selectedCurrency;
+
+          const currencyButton = Array.from(tokensContainer?.children)
+            .filter(
+              (token) =>
+                token?.innerText?.includes("USDT") ||
+                token?.innerText?.includes("USDC")
+            )
+            .find((token) => {
               const currencyText = token?.innerText;
-  
-              const availableCurrenciesRegex = new RegExp("USDC|USDT");
-  
-              if (!availableCurrenciesRegex.test(currencyText)) {
-                return false;
+
+              if (
+                currentOtherCurrency &&
+                currencyText.includes(currentOtherCurrency)
+              ) {
+                return true;
               }
-  
-              const amount = currencyText.split("\n\n")[2];
-  
+
+              const [currency, , amount] = currencyText.split("\n\n");
               if (isSelectingStartingCurrency && amount) {
+                selectedCurrency = currency;
                 return true;
               } else if (!isSelectingStartingCurrency && !amount) {
                 return true;
               }
-  
+
               return false;
-            }
-          );
-  
+            });
+
           await currencyButton?.click();
-        }, isSelectingStartingCurrency
+          return selectedCurrency;
+        },
+        isSelectingStartingCurrency,
+        currentOtherCurrency
       );
 
-      resolve(null);
+      resolve(selectedCurrency);
     }, time);
   });
 }
 
 async function handleSelectStartingCurrency(page) {
-  await selectCurrency(page, true);
+  const selectedCurrency = await selectCurrency(page, true);
 
-  await handleOpenOtherCurrencySelectorModal(page)
+  await handleOpenOtherCurrencySelectorModal(
+    page,
+    selectedCurrency === "USDC" ? "USDT" : "USDC"
+  );
 }
 
-async function handleSelectOtherCurrency(page) {
-  await selectCurrency(page, false);
+async function handleSelectOtherCurrency(page, currentOtherCurrency) {
+  await selectCurrency(page, false, currentOtherCurrency);
 
-  await handleSelectAmount(page)
+  await handleSelectAmount(page);
 }
 
 async function selectAmount(page, amount) {
@@ -103,14 +119,14 @@ async function selectAmount(page, amount) {
   return new Promise((resolve) => {
     setTimeout(async () => {
       await page.evaluate(async (amount) => {
-        const buttons = document.querySelectorAll(".MuiButton-outlined")
+        const buttons = document.querySelectorAll(".MuiButton-outlined");
         const amountButton = Array.from(buttons).find((button) => {
           return button.innerHTML.includes(amount);
         });
         await amountButton?.click();
       }, amount);
-      
-      resolve(null);        
+
+      resolve(null);
     }, time);
   });
 }
@@ -127,7 +143,7 @@ async function clickSwapButton(page) {
   return new Promise((resolve) => {
     setTimeout(async () => {
       await page.evaluate(async () => {
-        const buttons = document.querySelectorAll(".MuiButton-contained")
+        const buttons = document.querySelectorAll(".MuiButton-contained");
         const swapButton = Array.from(buttons).find((button) => {
           return button.innerHTML.includes("Swap");
         });
@@ -148,19 +164,19 @@ async function clickUnlockButton(page) {
   return new Promise((resolve) => {
     setTimeout(async () => {
       const result = await page.evaluate(async () => {
-        const buttons = document.querySelectorAll(".MuiButton-contained")
+        const buttons = document.querySelectorAll(".MuiButton-contained");
         if (!buttons) {
           return false;
         }
-  
+
         const unlockButton = Array.from(buttons).find((button) => {
           return button.innerHTML.includes("Unlock");
         });
-  
+
         if (!unlockButton) {
           return false;
         }
-  
+
         await unlockButton.click();
         return true;
       });
@@ -174,9 +190,9 @@ async function handleClickUnlockButton(page) {
   const foundUnlockButton = await clickUnlockButton(page);
 
   if (foundUnlockButton) {
-    await handleCloseUnlockSuccessModal(page)
+    await handleCloseUnlockSuccessModal(page);
   } else {
-    await handleClickSwapButton(page)
+    await handleClickSwapButton(page);
   }
 }
 
@@ -185,9 +201,7 @@ async function closeSuccessModal(page) {
 
   return new Promise((resolve) => {
     setTimeout(async () => {
-      const modalOverlay = await page.$(
-        ".background-overlay"
-      );
+      const modalOverlay = await page.$(".background-overlay");
       await modalOverlay?.click();
       resolve(null);
     }, time);
@@ -215,39 +229,51 @@ async function handleCloseUnlockSuccessModal(page) {
     const [mainPage] = await browser.pages();
 
     setTimeout(async () => {
-      await mainPage.goto("https://chainlist.org/chain/324", {timeout: 0, waitUntil: 'networkidle0'});
+      await mainPage.goto("https://chainlist.org/chain/324", {
+        timeout: 0,
+        waitUntil: "networkidle0",
+      });
 
       const connectNetworkButton = await mainPage.$("button.border");
       await connectNetworkButton?.click();
 
-      await new Promise(r => setTimeout(r, 2000));
-      
-      await mainPage.goto("https://syncswap.xyz", {timeout: 0, waitUntil: 'networkidle0'});
+      await new Promise((r) => setTimeout(r, 2000));
+
+      await mainPage.goto("https://syncswap.xyz", {
+        timeout: 0,
+        waitUntil: "networkidle0",
+      });
       await mainPage.setViewport({ width: 920, height: 800 });
       const closeOnboardingButton = await mainPage.$(".window .pointer");
       await closeOnboardingButton?.click();
-      await new Promise(r => setTimeout(r, 2000));
-      
-      const connectWalletButton = await mainPage.waitForSelector('button')
-      await connectWalletButton?.click();
-      await new Promise(r => setTimeout(r, 2000));
-      
-      const connectToMetamaskButton = await mainPage.waitForSelector('div >>>> ::-p-text("Ethereum Wallet")')
-      await connectToMetamaskButton?.click();
-      await new Promise(r => setTimeout(r, 10000));
-      
-      const switchNetworkButton = await mainPage.waitForSelector('#swap-box > div:nth-child(1) > div > button')
-      await switchNetworkButton?.click();
-      
-      await new Promise(r => setTimeout(r, 2000));
-      const confirmSwitchNetworkButton = await mainPage.waitForSelector('#container > div > div:nth-child(3) > div > div > div > div > div.col2.gap-2.align > div.row.gap-1.align > div > button')
-      await confirmSwitchNetworkButton?.click();
-      
-      await new Promise(r => setTimeout(r, 30000));
-      
-      await handleOpenStartingCurrencySelectorModal(mainPage);
+      await new Promise((r) => setTimeout(r, 2000));
 
-      await new Promise(r => setTimeout(r, 30000));
-    }, 10000);    
-  } catch (err) { console.error(err); }
+      const connectWalletButton = await mainPage.waitForSelector("button");
+      await connectWalletButton?.click();
+      await new Promise((r) => setTimeout(r, 2000));
+
+      const connectToMetamaskButton = await mainPage.waitForSelector(
+        'div >>>> ::-p-text("Ethereum Wallet")'
+      );
+      await connectToMetamaskButton?.click();
+      await new Promise((r) => setTimeout(r, 10000));
+
+      const switchNetworkButton = await mainPage.waitForSelector(
+        "#swap-box > div:nth-child(1) > div > button"
+      );
+      await switchNetworkButton?.click();
+
+      await new Promise((r) => setTimeout(r, 2000));
+      const confirmSwitchNetworkButton = await mainPage.waitForSelector(
+        "#container > div > div:nth-child(3) > div > div > div > div > div.col2.gap-2.align > div.row.gap-1.align > div > button"
+      );
+      await confirmSwitchNetworkButton?.click();
+
+      await new Promise((r) => setTimeout(r, 10000));
+
+      await handleOpenStartingCurrencySelectorModal(mainPage);
+    }, 10000);
+  } catch (err) {
+    console.error(err);
+  }
 })();
