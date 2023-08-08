@@ -411,7 +411,9 @@ const App = ({
   const [nextRunInterval, setNextRunInterval] = useState<number>(0);
   const [numberOfSwapsDone, setNumberOfSwapsDone] = useState<number>(0);
   const [todayStartingHour, setTodayStartingHour] = useState<number>(
-    getTodayStartingHour(dailyHourRange)
+    localStorage.getItem("todayStartingHour")
+      ? Number(localStorage.getItem("todayStartingHour"))
+      : getTodayStartingHour(dailyHourRange)
   );
   const interval = useRef<NodeJS.Timer | undefined>(undefined);
 
@@ -537,6 +539,10 @@ const App = ({
 
         if (newNumberOfSwapsDone >= numberOfSwaps) {
           setNextRunInterval(0);
+          localStorage.setItem(
+            "todayStartingHour",
+            String(getTodayStartingHour(dailyHourRange))
+          );
           setTodayStartingHour(getTodayStartingHour(dailyHourRange));
           setNumberOfSwapsDone(0);
         } else {
@@ -562,15 +568,23 @@ const App = ({
       }
     }
 
+    const keepAliveInterval = setInterval(() => {
+      keepSiteActive();
+    }, oneHour);
+
     if (!isRunning) {
-      clearEffect(interval);
+      clearInterval(keepAliveInterval);
+      clearInterval(interval.current);
+      document.styleSheets[0].deleteRule(0);
       return;
     }
 
     swap();
 
     return () => {
-      clearEffect(interval);
+      clearInterval(keepAliveInterval);
+      clearInterval(interval.current);
+      document.styleSheets[0].deleteRule(0);
     };
   }, [isRunning]);
 
@@ -580,6 +594,7 @@ const App = ({
     if (!newIsRunning) {
       setNextRunInterval(0);
       setNumberOfSwapsDone(0);
+      localStorage.setItem("todayStartingHour", String(todayStartingHour));
       setTodayStartingHour(getTodayStartingHour(dailyHourRange));
     }
   };
@@ -646,9 +661,17 @@ const NextRunIntervalDisplay = ({
   );
 };
 
-function clearEffect(
-  interval: React.MutableRefObject<NodeJS.Timer | undefined>
-) {
-  clearInterval(interval.current);
-  document.styleSheets[0].deleteRule(0);
+async function keepSiteActive() {
+  const menuButton = document.querySelector<HTMLButtonElement>(
+    ".MuiIconButton-root.MuiIconButton-sizeMedium"
+  );
+  if (menuButton) {
+    menuButton.click();
+    await new Promise((resolve) => {
+      setTimeout(() => {
+        menuButton.click();
+        resolve(null);
+      }, 2000);
+    });
+  }
 }
