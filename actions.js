@@ -1,4 +1,10 @@
-import { getWaitTime, sleep } from "./utils";
+import pino from "pino";
+import { getWaitTime, sleep } from "./utils.js";
+
+const logger = pino({
+  prettyPrint: false,
+  level: "info",
+});
 
 export async function goToSyncSwapAndChangeNetwork(mainPage) {
   await mainPage.goto("https://syncswap.xyz", { timeout: 0, waitUntil: 'networkidle0' });
@@ -17,8 +23,8 @@ export async function goToSyncSwapAndChangeNetwork(mainPage) {
 
   const switchNetworkButton = await mainPage.waitForSelector('#swap-box > div:nth-child(1) > div > button');
   await switchNetworkButton?.click();
-
   await sleep();
+
   const confirmSwitchNetworkButton = await mainPage.waitForSelector('#container > div > div:nth-child(3) > div > div > div > div > div.col2.gap-2.align > div.row.gap-1.align > div > button');
   await confirmSwitchNetworkButton?.click();
 }
@@ -53,11 +59,15 @@ export async function openCurrencySelectorModal(
 export async function handleOpenStartingCurrencySelectorModal(page) {
   await openCurrencySelectorModal(page, 0);
 
-  await handleSelectStartingCurrency(page)
+  logger.info("Selecting starting currency");
+
+  await handleSelectStartingCurrency(page);
 }
 
 export async function handleOpenOtherCurrencySelectorModal(page, currentOtherCurrency) {
   await openCurrencySelectorModal(page, 1);
+
+  logger.info("Selecting other currency");
 
   await handleSelectOtherCurrency(page, currentOtherCurrency)
 }
@@ -113,11 +123,15 @@ export async function selectCurrency(
 export async function handleSelectStartingCurrency(page) {
   const selectedCurrency = await selectCurrency(page, true);
 
+  logger.info("Selecting other currency");
+
   await handleOpenOtherCurrencySelectorModal(page, selectedCurrency === "USDC" ? "USDT" : "USDC")
 }
 
 export async function handleSelectOtherCurrency(page, currentOtherCurrency) {
   await selectCurrency(page, false, currentOtherCurrency);
+
+  logger.info("Selecting amount");
 
   await handleSelectAmount(page)
 }
@@ -142,6 +156,8 @@ export async function selectAmount(page, amount) {
 
 export async function handleSelectAmount(page) {
   await selectAmount(page, "100%");
+
+  logger.info("Clicking unlock button");
 
   await handleClickUnlockButton(page);
 }
@@ -199,8 +215,12 @@ export async function handleClickUnlockButton(page) {
   const foundUnlockButton = await clickUnlockButton(page);
 
   if (foundUnlockButton) {
+    logger.info("Clicking confirm unlock button");
+
     await handleCloseUnlockSuccessModal(page)
   } else {
+    logger.info("Clicking swap button");
+
     await handleClickSwapButton(page)
   }
 }
@@ -221,6 +241,8 @@ export async function closeSuccessModal(page) {
 
 export async function handleCloseUnlockSuccessModal(page) {
   await closeSuccessModal(page);
+
+  logger.info("Clicking swap button");
 
   await handleClickSwapButton(page);
 }
