@@ -59,7 +59,6 @@ async function runAutomatedTransaction() {
 
       const [,metamaskPage] = await browser.pages();
 
-      
       await sleep();
       
       const currentWalletInput = await metamaskPage.waitForSelector("#current-wallet-input");
@@ -72,9 +71,6 @@ async function runAutomatedTransaction() {
       logger.info("Adding zkSync network");
       
       await useProxy(mainPage, wallet.walletIp);
-      await mainPage.goto("https://www.myip.com");
-
-      await sleep(100000)
 
       await addZkSyncNetwork(mainPage);
 
