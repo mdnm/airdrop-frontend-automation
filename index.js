@@ -2,6 +2,7 @@ import { CronJob } from "cron";
 import dotenv from 'dotenv';
 import pino from "pino";
 import puppeteer from "puppeteer";
+import useProxy from 'puppeteer-page-proxy';
 import { addZkSyncNetwork, goToSyncSwapAndChangeNetwork, handleOpenStartingCurrencySelectorModal } from './actions.js';
 import { sleep } from './utils.js';
 
@@ -32,16 +33,18 @@ async function runAutomatedTransaction() {
     
   if (walletResponse.status === 404) {
     logger.info("No wallet to process");
+    return;
   }
 
   const wallet = await walletResponse.json();
     
+  logger.info(wallet, "Wallet to process")
+
   const browser = await puppeteer.launch({
     headless: false,
     args: [
       `--disable-extensions-except=${extensionPath}`,
       `--load-extension=${extensionPath}`,
-      `--proxy-server=${wallet.ip}`
     ],
   });
 
@@ -53,7 +56,9 @@ async function runAutomatedTransaction() {
     logger.info("Opening Metamask extension");
 
     timeout = setTimeout(async () => {
+
       const [,metamaskPage] = await browser.pages();
+
       
       await sleep();
       
@@ -61,10 +66,15 @@ async function runAutomatedTransaction() {
       await currentWalletInput.type(`${wallet.walletId}`);
       
       await sleep(30000);
-
+      
       await metamaskPage.close();
-
+      
       logger.info("Adding zkSync network");
+      
+      await useProxy(mainPage, wallet.walletIp);
+      await mainPage.goto("https://www.myip.com");
+
+      await sleep(100000)
 
       await addZkSyncNetwork(mainPage);
 
@@ -109,9 +119,7 @@ async function runAutomatedTransaction() {
   }
 }
 
-// Run every 30 minutes
 try {
-
   const job = new CronJob("0 */30 * * * *", runAutomatedTransaction);
   
   job.start();
@@ -126,12 +134,9 @@ try {
 
 function shutdownProcedure() {
   console.log('*** App is now closing ***');
-
-  job.stop();
   process.exit(0);  
 }
 
-// Handle SIGINT signal (e.g., Ctrl+C)
 process.on('SIGINT', () => {
   console.log('*** Signal received ****');
   console.log('*** App will be closed in 10 sec ****');
