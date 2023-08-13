@@ -82,13 +82,27 @@ async function runAutomatedTransaction() {
       logger.info("Successful transaction");
 
       await browser.close();
+
+      await fetch(`${process.env.WALLET_MANAGER_URL}/transaction/push`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ walletId: wallet.walletId, success: true }),
+      });
     }, 10000);
   } catch (err) { 
-    console.error(err); 
-
-    logger.error("Error during transaction");
+    logger.error(err, "Error during transaction");
 
     browser.close();
+
+    await fetch(`${process.env.WALLET_MANAGER_URL}/transaction/push`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ walletId: wallet.walletId, success: false }),
+    });
     
     clearTimeout(timeout);
   }
