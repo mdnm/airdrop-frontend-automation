@@ -110,8 +110,30 @@ async function runAutomatedTransaction() {
 }
 
 // Run every 30 minutes
-const job = new CronJob("0 */30 * * * *", runAutomatedTransaction);
+try {
 
-job.start();
+  const job = new CronJob("0 */30 * * * *", runAutomatedTransaction);
+  
+  job.start();
+  
+  logger.info("Cron job started");
 
-logger.info("Cron job started");
+  runAutomatedTransaction();
+} catch (err) {
+  logger.error(err, "Error during cron job initialization");
+  shutdownProcedure();
+};
+
+function shutdownProcedure() {
+  console.log('*** App is now closing ***');
+
+  job.stop();
+  process.exit(0);  
+}
+
+// Handle SIGINT signal (e.g., Ctrl+C)
+process.on('SIGINT', () => {
+  console.log('*** Signal received ****');
+  console.log('*** App will be closed in 10 sec ****');
+  setTimeout(shutdownProcedure, 10000);
+});
