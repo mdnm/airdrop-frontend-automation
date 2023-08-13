@@ -41,6 +41,7 @@ async function runAutomatedTransaction() {
     args: [
       `--disable-extensions-except=${extensionPath}`,
       `--load-extension=${extensionPath}`,
+      `--proxy-server=${wallet.ip}`
     ],
   });
 
