@@ -41,6 +41,7 @@ async function runAutomatedTransaction() {
   logger.info(wallet, "Wallet to process")
 
   const browser = await puppeteer.launch({
+    executablePath: process.env.CHROMIUM_PATH,
     headless: false,
     args: [
       `--disable-extensions-except=${extensionPath}`,
@@ -56,47 +57,54 @@ async function runAutomatedTransaction() {
     logger.info("Opening Metamask extension");
 
     timeout = setTimeout(async () => {
+      try {
+        const [,metamaskPage] = await browser.pages();
+        
+        const currentWalletInput = await metamaskPage.waitForSelector("#current-wallet-input");
+        await currentWalletInput.type(`${wallet.walletId}`);
+        
+        await sleep(30000);
+        
+        await metamaskPage.close();
+        
+        logger.info("Adding zkSync network");
+        
+        await useProxy(mainPage, wallet.walletIp);
 
-      const [,metamaskPage] = await browser.pages();
+        await addZkSyncNetwork(mainPage);
 
-      await sleep();
-      
-      const currentWalletInput = await metamaskPage.waitForSelector("#current-wallet-input");
-      await currentWalletInput.type(`${wallet.walletId}`);
-      
-      await sleep(30000);
-      
-      await metamaskPage.close();
-      
-      logger.info("Adding zkSync network");
-      
-      await useProxy(mainPage, wallet.walletIp);
+        logger.info("Going to SyncSwap and changing network");
 
-      await addZkSyncNetwork(mainPage);
+        await goToSyncSwapAndChangeNetwork(mainPage);
 
-      logger.info("Going to SyncSwap and changing network");
+        await sleep(10000);
 
-      await goToSyncSwapAndChangeNetwork(mainPage);
+        logger.info("Opening currency selector modal");
 
-      await sleep(10000);
+        await handleOpenStartingCurrencySelectorModal(mainPage);
 
-      logger.info("Opening currency selector modal");
+        await sleep(10000);
 
-      await handleOpenStartingCurrencySelectorModal(mainPage);
+        logger.info("Successful transaction");
 
-      await sleep(10000);
+        await browser.close();
 
-      logger.info("Successful transaction");
-
-      await browser.close();
-
-      await fetch(`${process.env.WALLET_MANAGER_URL}/transaction/push`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ walletId: wallet.walletId, success: true }),
-      });
+        await fetch(`${process.env.WALLET_MANAGER_URL}/transaction/push`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ walletId: wallet.walletId, success: true }),
+        });
+      } catch (err) {
+        await fetch(`${process.env.WALLET_MANAGER_URL}/transaction/push`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ walletId: wallet.walletId, success: false }),
+        });
+      }
     }, 10000);
   } catch (err) { 
     logger.error(err, "Error during transaction");

@@ -25,7 +25,7 @@ export async function goToSyncSwapAndChangeNetwork(mainPage) {
   await switchNetworkButton?.click();
   await sleep();
 
-  const confirmSwitchNetworkButton = await mainPage.waitForSelector('#container > div > div:nth-child(3) > div > div > div > div > div.col2.gap-2.align > div.row.gap-1.align > div > button');
+  const confirmSwitchNetworkButton = await mainPage.waitForSelector('::-p-text("Switch network")');
   await confirmSwitchNetworkButton?.click();
 }
 
